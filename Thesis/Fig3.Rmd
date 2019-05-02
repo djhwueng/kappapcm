@@ -1,0 +1,166 @@
+---
+title: "Script that generates Fig 3 "
+output:
+  html_document: 
+    toc: true
+    number_sections: false
+    theme: united
+    highlight: tango
+  pdf_document: default
+---
+
+#REPRODUCING FIG 3
+
+Here, we first try to reproduce the results presented in Fig. 3.
+The code to produce this figure seem to be in `emai_code.R`, from line 500.
+The result of this analysis should then be stored in object `kappa_taxa_sim.RData`.
+
+We start by loading the file
+...
+We then plot the data using the r script.
+...
+
+The resulting figure is indeed the one presented in Fig. 3.
+Black line is in the middle, and smoother.
+Red line is above and blue is below, both "unstable".
+Below I explain some of the issues with this figure. 
+
+
+## ISSUE 1: MIS-LABELING
+In BLACK is plotted `apply(log(kappa.array),2,median)`.
+It is said to be the **`rtree`** method (I.62-64 of the manuscript):
+The black line was obtained from random trees using random splits trees method(implemented using R package:rtree (Paradis et al. 2004) along with computed BM (Felsenstein, 1985) to make a chronogram).
+However, examing code I.517-533 from `email_code.R`
+We find that this simmulations actually match to a **`sim.bd.taxa.age`** method that is supposed to be the BLUE curve in Fig. 3.
+So the conclusions of the paragraph lines 68-77 are reversed compared to what is actually simulated and studied. 
+The actual labeling from the script is:
+
+BLACK: `sim.bd.taxa.age`
+BLUE: `rtree`
+RED: `pbtree`
+
+
+**Response: ** We redo the analysis and make new plot with legend. 
+
+## ISSUE 2: SIMULATION REPLICATION ERROR
+But the RED and BLUE curves are actually misleading, even with their correct labels.
+Indeed, they are based on data that is not variable at all:
+
+```{r,eval=FALSE}
+summary(kappa.array1)
+summary(kappa.array2)
+
+all(log(kappa.array1[1,])==mean.kappa1)
+all(log(kappa.array2[1,])==mean.kappa2)
+```
+
+So something must have goes wrong in the simulations, and the red and blue curves are actually based on just **ONE** replicate, instead of 100 for the black curve.
+This in itself explains the _unstability_ of the red and blue curves.
+Note that this error is probably due to a miss-use of function rep in the simulation.
+
+**Response: ** Thank you for pointing this, we replace function `rep` by `loop` to generate different trees under pure bith model and coalescent model.
+
+
+## ISSUE 3: MEDIAN vs MEAN
+Themanuscript states that (I. 61) 
+each line represents the **median** for 100 runs.
+This is true for the black line, but false for the red and blue lines, where the **mean** is plotted.
+Even if the simulation were correct, the scores plotted here are not the same for all the curves.
+
+**Response: ** We have corrected this issue and use mean for the three lines.
+
+## ISSUE 4: NON-ULRTAMETRIC TREES
+
+All the paper assumes that tht tree considered are ultrametric. However, even if the simulations were correct, the `rtree` method **does not** produce a ultrametric tree. So the comparison between birth-death models and split-tree method is baised. 
+
+**Response:**  Thank you for pointing out, we replace random split method (`rtree`) method by coalescent (`rcoal`) method to meet the ultrametric condition.
+
+
+# New Figure
+
+```{r,eval=FALSE}
+rm(list=ls())
+#install.packages("repmis")
+library(repmis)
+library(ape)
+library(TreeSim)
+library(phytools)
+kappaget<-function(phy){
+  kappa(vcv(phy))
+}
+treesize.array<-c(10,seq(50,800,by=50))
+numbsim<-100
+kappa.array<-array(0,c(numbsim,length(treesize.array)))#sim.bd.taxa.age method
+kappa.array1<-array(0,c(numbsim,length(treesize.array)))#rcoal method
+kappa.array2<-array(0,c(numbsim,length(treesize.array)))#ptree method
+```
+
+Simulate trees under models:
+
+```{r,eval=FALSE}
+trees1<-list()
+trees2<-list()
+for(treesizeIndex in 1:length(treesize.array)){
+  
+  #birth-death tree
+  trees<- sim.bd.taxa.age(n=treesize.array[treesizeIndex],numbsim=numbsim,lambda=0.4,mu=0.1,frac=.5,age=log(100)/0.3)
+
+  vcv.obs<-lapply(1:numbsim,function(x) vcv(trees[[x]]))
+  kappa.obs<-unlist(lapply(1:numbsim, function(x) kappa(vcv.obs[[x]],exact=TRUE)))
+  kappa.array[,treesizeIndex]<-kappa.obs
+  
+  #random split tree
+  for(Index in 1:numbsim){
+    trees1[[Index]]<-rcoal(treesize.array[treesizeIndex])
+  }
+  
+  vcv.obs1<-lapply(1:numbsim, function(x) vcv(trees1[[x]]))
+  kappa.obs1<-unlist(lapply(1:numbsim, function(x) kappa(vcv.obs1[[x]],exact=TRUE)))
+  kappa.array1[,treesizeIndex]<-kappa.obs1
+  
+  #pure birth tree
+  for(Index in 1:numbsim){
+    trees2[[Index]]<-pbtree(n=treesize.array[treesizeIndex])
+  }
+  vcv.obs2<-lapply(1:numbsim, function(x) vcv(trees2[[x]]))
+  kappa.obs2<-unlist(lapply(1:numbsim, function(x) kappa(vcv.obs2[[x]],exact=TRUE)))
+  kappa.array2[,treesizeIndex]<-kappa.obs2
+  }
+```
+
+The kappa values based on data is variable at all
+
+```{r,eval=FALSE}
+summary(kappa.array)
+summary(kappa.array1)
+summary(kappa.array2)
+
+all(log(kappa.array)[1,]==mean.kappa)
+all(log(kappa.array1)[1,]==mean.kappa1)
+all(log(kappa.array2)[1,]==mean.kappa2)
+```
+
+
+Create plots 
+
+```{r,eval=FALSE}
+library(ggplot2)
+mean.kappa<-apply(log(kappa.array),2,mean)
+mean.kappa1<-apply(log(kappa.array1),2,mean)
+mean.kappa2<-apply(log(kappa.array2),2,mean)
+
+df <- data.frame(taxa=treesize.array,
+               kappa=c(mean.kappa,mean.kappa1,mean.kappa2), 
+               type=c(rep("birth-death",length(mean.kappa)),rep("coalescent",length(mean.kappa1)),rep("pure birth",length(mean.kappa2))))
+      
+legend_title<-"Type"
+                                  
+ggplot(data=df,aes(x=taxa,y=kappa,group=type,color=type))+
+  labs(title="                                     kappa vs. taxa (Simulated Data)", y = "log kappa", x="number of taxa")  +
+  geom_line(size=1)+
+  geom_point( size=2) +
+  theme_classic()
+```  
+
+![](Fig3.png)
+

@@ -1,0 +1,77 @@
+---
+title: "Introduction and Setting of the problem"
+output:
+  html_document: 
+    toc: true
+    number_sections: false
+    theme: united
+    highlight: tango
+  pdf_document: default
+---
+
+>1. **I23-28 (Cdonition number introduction): The importance of the condition number is stated, but no reference is given to support this claim. It would be good to add some background on the use of this number, and on the range of "acceptable" values for it. One good reference to add might be: Nicholas J. Higham, Accuracy and Stability of Numerical Algorithm, Soc. Ind. Appl. Math., 1996. Also to my knowledge, this number describe the "numerical" properties of the matrix, and its robustness to standard computer operations. I'm not sure that the term "statistically stable" (e.g. I. 70) is relevant when using this particular metric. But that might be just a matter of definition, that could be clarified with a better introduction of the porperties of the condition number.**
+
+>2. **I.39-40: In the same vein, it could be good to clarify what the author considers as a "ill-conditioned" matrix. Does that depends on teh computer software used, or even the machone precision of a specific number?**
+
+
+To make a range of "acceptable" values for the condition number of phylogeny.
+We use the same simulation method to 
+
+
+We use three type of tree to assess the possible range of `acceptable` values.
+
+```{r,eval=FALSE}
+rm(list=ls())
+library(ape)
+library(TreeSim)
+library(phytools)
+kappaget<-function(phy){
+  kappa(vcv(phy))
+}
+numbsim<-10
+treesize.array<-c(seq(100,500,by=50))
+kappa.array<-array(0,c(numbsim,length(treesize.array)))
+kappa.array1<-array(0,c(numbsim,length(treesize.array)))
+kappa.array2<-array(0,c(numbsim,length(treesize.array)))
+
+trees1<-list()
+trees2<-list()
+for(treesizeIndex in 1:length(treesize.array)){
+  #birth-death tree
+  trees<-sim.bd.taxa.age(n=treesize.array[treesizeIndex],numbsim=numbsim,lambda=0.4,mu=0.1,frac=.5,age=log(treesize.array[treesizeIndex])/0.3)
+  vcv.obs<-lapply(1:numbsim, function(x) vcv(trees[[x]]))
+  kappa.obs<-unlist(lapply(1:numbsim,function(x) kappa(vcv.obs[[x]],exact=TRUE)))
+  kappa.array[,treesizeIndex]<-kappa.obs
+
+  #random split tree
+  for(Index in 1:numbsim){
+    trees1[[Index]]<-rcoal(treesize.array[treesizeIndex])
+  }
+
+  vcv.obs1<-lapply(1:numbsim,function(x) vcv(trees1[[x]]))
+  kappa.obs1<-unlist(lapply(1:numbsim,function(x) kappa(vcv.obs1[[x]],exact=TRUE)))
+  kappa.array1[,treesizeIndex]<-kappa.obs1    
+  
+  #pure birth tree
+  for(Index in 1:numbsim){
+    trees2[[Index]]<-pbtree(n=treesize.array[treesizeIndex])
+  }
+  vcv.obs2<-lapply(1:numbsim, function(x) vcv(trees2[[x]]))
+  kappa.obs2<-unlist(lapply(1:numbsim,function(x) kappa(vcv.obs2[[x]],exact=TRUE)))
+  kappa.array2[,treesizeIndex] <-kappa.obs2
+  }
+
+
+summary.kappa<-apply(log(kappa.array),2,summary)
+summary.kappa1<-apply(log(kappa.array1),2,summary)
+summary.kappa2<-apply(log(kappa.array2),2,summary)
+
+summarytreekappa<-round(rbind(summary.kappa,summary.kappa1,summary.kappa2))
+colnames(summarytreekappa)<-treesize.array
+summarytreekappa
+```
+
+
+
+
+
