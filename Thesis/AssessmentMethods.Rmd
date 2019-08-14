@@ -1,0 +1,154 @@
+---
+title: "Assessment of the methods"
+output: html_document
+---
+
+<span style="color:red">**NEED TO PUT BROWNIAN MODEL**</span>
+
+# Reviewer comment:
+>Lack of assessment of the methods: The three methods are described, and their effects on the condition number is studied, but nothing is said on their accuracy. In other words, we have no idea of whether the new, better conditioned, matrix is a "good" approximation of the original one(in a sense that remains to be defined). I see this as a major flaw(weakness) of this article, since the reduction of the condition number cannot be a standalone goal, and is about useless if the resulting matrix is too far from the original one.
+
+We add a section for assessing the three methods. Under the Brownian motion model, we compare the normalized root-mean-squared deviation for the rate parameter.
+
+$$\text{NRMSD}=\sqrt{E[(\sigma-\hat{\sigma})^2]}/\bar{\sigma}$$
+
+where $\sigma$ is the true parameter, $\hat{\sigma}$ is the maximum likelihood estimator and $\bar{\sigma}$ is the mean for the estimators.
+
+## Shrinkage Method
+
+```{r}
+rm(list=ls())
+
+avenegLOOL<-function(logdelta,C,T,n){
+  delta<-10^logdelta
+  beta <-(1-delta)/(n-1)
+  S_delta<-n*beta*C+delta*T #formula (3) in  
+  elu<-expand(lu(S_delta))
+  L<-elu$P%*%elu$L
+  U<-elu$U
+  logSdet<-sum(log(abs(diag(U))))
+  ro<-sum(diag(solve(S_delta)%*%C))
+  if(beta*ro>1){
+    val<-Inf
+  }else{
+    val<-log(1-beta*ro)+ro/(1-beta*ro)+logSdet
+  }
+  return(val)
+}
+
+TH.cov.shrink<-function(S,n){
+  T<-diag(diag(S))
+  delta<-10^(optimize(avenegLOOL,c(-8,0),S,T,n)$minimum)
+  beta <-(1-delta)/(n-1)
+  C<-n*beta*S + delta*T
+  return(C)
+}
+
+Shrink.tree<-function(phy){
+  phy.vcv<-vcv(phy)
+  vcv.shrunk<-TH.cov.shrink(phy.vcv,dim(phy.vcv)[1])
+  shrunk.tree<-upgma(2*(max(vcv.shrunk)-vcv.shrunk))
+ return(shrunk.tree)
+  }
+```
+
+## Drop Tip Method
+
+```{r}
+library(ape)
+library(TreeSim)
+
+DropShortest<-function(phy,traitset){
+  tip.lengths <-phy$edge.length[which(phy$edge[,2]<=Ntip(phy))]
+  names(tip.lengths)<-phy$tip.label
+  drop.tip.index<-phy$edge[which(phy$edge[,2]<=Ntip(phy)),2][which.min(tip.lenths)[1]]
+  drop.tip.names<-names(tip.lengths[drop.tip.index])
+  phy<-drop.tip(phy,drop.tip.index)
+  traitset<-traitset[-which(rownames(traitset)==drop.tip.names),]
+    return(list(phy=phy,traitset=traitset))
+}
+
+DropRandom<-function(phy){
+  phy<-drop.tip(phy,sample.int(Ntip(phy),1))
+  return(phy)
+}
+```
+
+
+## Stretch Length Method 
+
+```{r}
+SegM<-function(M){#find branch length segments
+  segment<-NULL
+  sortM<-sort(M)
+  while(sum(sortM!=0)){#from tip to bottom
+    m<-max(sortM)
+    sortM[which(sortM==m)]<-0
+    sm<-max(sortM)
+    segment<-cbind(segment,m-sm)#t_d,...,t_2,t_1
+  }
+  return(rev(segment))#t_1,t_2,...,t_d from root to tips
+}
+
+PtbLen<-function(sgmt){#varying time segments
+  k<-ceiling(1/min(sgmt))
+  applen<-array(0,c(length(sgmt)))
+  for (i in 1:length(sgmt)){
+    applen[i]<-rgamma(1,shape=k*sgmt[i],rate=1)
+  }
+  return(applen/sum(applen)) #Dirichlet samples
+}
+
+PtbLen_beta<-function(sgmt){#varying time segments under beta
+  new_sgmt<-array(0,length(sgmt))
+  new_sgmt[1]<-rbeta(n=1,shape1=sgmt[1],shape2=sum(sgmt[-1]))
+  for(Index in 2:(length(sgmt)-1)){
+    s_Index<-rbeta(n=1,shape1=sgmt[Index],shape2=sum(sgmt[-(1:Index)]))
+    new_sgmt[Index]<-(1-sum(sgmt[1:(Index-1)]))*s_Index
+  }
+  new_sgmt[length(sgmt)]<-1-sum(new_sgmt[-length(new_sgmt)])
+  return(new_sgmt)
+}
+
+AccSum<-function(sgmt){#accumulate segments
+  accsum<-array(0,c(length(sgmt)))
+  tmp<-0
+  for(i in 1:length(sgmt)){
+    tmp<-tmp+sgmt[i]
+    accsum[i]<-tmp
+  }
+  return(accsum)
+} #g1=t1, g2=t1+t2,...,gd=t1+t2+...+td
+
+VOR<-function(accsum,mtx=mtx){ #obtain the matrix
+  accsum<-rev(accsum)#gd,...,g2,g1
+  outmtx<-array(0,c(dim(mtx)))
+  M<-mtx
+  count<-0
+  while(sum(M)!=0){
+    count<-count+1
+    ptb<-max(M)
+    positions<-which(mtx==ptb)
+    outmtx[psoitions]<-accsum[count]
+    M[positions]<-0
+  }
+  return(outmtx)
+}
+
+PerturbTree<-function(phy){#get the new tree
+  mtx<-vcv(phy)
+  height<-max(mtx)
+  mtx<-mtx/height #scale tree to make the Dirichlet distribution work
+  sgmt<-SegM(mtx) #get segmetns
+  ptblen<-Ptblen(sgmt) #perturb segments
+  accsum <-AccSum(ptlen)
+  M<-VOR(accsum,mtx=mtx)
+  rownames(M)<-rownames(mtx)
+  colnames(M)<-colnames(mtx)
+  M<-height*M #put the tree height back for the perturb tree
+  phy<-upgma(2*(max(M)-M))
+  return(phy)
+}
+```
+
+
