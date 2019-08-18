@@ -26,35 +26,35 @@ tinytipvcv<-function(C=C,shrink=shrink){
 
 treesize.array<-c(500)#,500,800)
 simtree<-200
-#tol.vals.array<-rev(10^(seq(from=-16, to = -10,by=0.1)))
-age.array<-10^(seq(from=12, to=16, length.out=20))
-#log10kappa.array<-array(0,c(length(tol.vals.array),simtree))
-log10kappa.array<-array(0,c(length(age.array),simtree))
-#sol.array<-array(NA,c(length(tol.vals.array),simtree))
+tol.vals.array<-rev(10^(seq(from=-16, to = -10,by=0.1)))
+#age.array<-10^(seq(from=12, to=16, length.out=20))
+log10kappa.array<-array(0,c(length(tol.vals.array),simtree))
+#log10kappa.array<-array(0,c(length(age.array),simtree))
+sol.array<-array(NA,c(length(tol.vals.array),simtree))
 sol.array<-array(NA,c(length(age.array),simtree))
 
 for(treesizeIndex in 1:length(treesize.array)){
   treesize<-treesize.array[treesizeIndex]
-#  for(tolIndex in 1:(length(tol.vals.array)-1)){
-#    tolmin<-tol.vals.array[tolIndex+1]
-#    tolmax<-tol.vals.array[tolIndex]
-  for(ageIndex in 1:length(age.array)){
-    print(ageIndex)
-    age<-age.array[ageIndex]
+  for(tolIndex in 1:(length(tol.vals.array)-1)){
+    tolmin<-tol.vals.array[tolIndex+1]
+    tolmax<-tol.vals.array[tolIndex]
+#  for(ageIndex in 1:length(age.array)){
+#    print(ageIndex)
+#    age<-age.array[ageIndex]
     for(reptreeIndex in 1:simtree){
 #      brith_lambda=runif(1,0.01,0.1)
 #      death_mu=runif(1,0,brith_lambda)
 #      tree<-sim.bd.taxa(n=treesize,numbsim=1,lambda=brith_lambda,mu=death_mu,complete = FALSE, stochsampling = TRUE)[[1]]
-#      tree<-sim.bd.taxa(n=treesize,numbsim=1,lambda=0.5,mu=0.1,complete = FALSE, stochsampling = TRUE)[[1]] 
-      tree<-sim.bd.taxa.age(n=treesize,numbsim=1,lambda=0.5,mu=0.1,age=age,mrca=TRUE)[[1]]
+      tree<-sim.bd.taxa(n=treesize,numbsim=1,lambda=0.5,mu=0.1,complete = FALSE, stochsampling = TRUE)[[1]] 
+#      tree<-sim.bd.taxa.age(n=treesize,numbsim=1,lambda=0.5,mu=0.1,age=age,mrca=TRUE)[[1]]
       C<-vcv(tree)
       #shrink.tol<- runif(1, min=tolmin, max=tolmax)
       #C <-  tinytipvcv(C=vcv(tree),shrink=shrink.tol) 
-#      log10kappa.array[tolIndex,reptreeIndex]<-log10(kappa(C))
-      log10kappa.array[ageIndex,reptreeIndex]<-log10(kappa(C))
+      log10kappa.array[tolIndex,reptreeIndex]<-log10(kappa(C))
+#      log10kappa.array[ageIndex,reptreeIndex]<-log10(kappa(C))
       #try(sol.array[tolIndex,reptreeIndex]<-solve(C)[1])
       try(sol.array[ageIndex,reptreeIndex]<-solve(C)[1])
-      
+     
     }
   } 
 
@@ -70,15 +70,15 @@ for(treesizeIndex in 1:length(treesize.array)){
   usetable<-NULL
 }
 
-#save.image("upperboundkappa100to800ageway.rda")
-save.image("upperboundkappa500only.rda")
+save.image("upperboundkappa100to800ageway.rda")
+#save.image("upperboundkappa500only.rda")
 
 
 
 
 rm(list=ls())
 load("~/Dropbox/JournalSubmission/EvolutionaryBioinformatics-kappa/code_MajorRevision/upperboundkappa500.rda")
-load("~/Dropbox/JournalSubmission/EvolutionaryBioinformatics-kappa/code_MajorRevision/upperboundkappa00.rda")
+load("~/Dropbox/JournalSubmission/EvolutionaryBioinformatics-kappa/code_MajorRevision/upperboundkappa100.rda")
 load("~/Dropbox/JournalSubmission/EvolutionaryBioinformatics-kappa/code_MajorRevision/upperboundkappa800.rda")
 tree50
 tree100
@@ -139,24 +139,27 @@ p.plot
 #  install.packages("BiocManager")
 
 #BiocManager::install("ggtree")
-library(ape)
-library(ggtree)
-treesize<-6
-tree<-sim.bd.taxa.age(n=treesize,numbsim=1,lambda=0.8, mu=0.1,age=100,mrca=TRUE)[[1]]
-tip.label<-c("  A","  B","  C","  D","  E","  F")
-tree$tip.label<-tip.label
-plot(tree,edge.width=3)
-
-
-nodelabels("",1,frame="c",bg="black",adj=0,cex=0.5)
-nodelabels("",2,frame="c",bg="black",adj=0,cex=0.5)
-nodelabels("",3,frame="c",bg="black",adj=0,cex=0.5)
-nodelabels("",4,frame="c",bg="black",adj=0,cex=0.5)
-nodelabels("",5,frame="c",bg="black",adj=0,cex=0.5)
-nodelabels("",6,frame="c",bg="black",adj=0,cex=0.5)
-
-
-axisPhylo(1,las=1,backward=FALSE)
+# library(ape)
+# library(ggtree)
+# treesize<-6
+# #tree<-sim.bd.taxa.age(n=treesize,numbsim=1,lambda=0.8, mu=0.1,age=100,mrca=TRUE)[[1]]
+# tree<-sim.bd.taxa(n=treesize,numbsim=1,lambda=0.5,mu=0.1,complete = FALSE, stochsampling = TRUE)[[1]] 
+# treevcv<-tinytipvcv<-function(C=C,shrink=10^(-15))
+# tree1<-upgma(2*(max(C)-C))
+# tip.label<-c("  A","  B","  C","  D","  E","  F")
+# tree1$tip.label<-tip.label
+# plot(tree1,edge.width=3)
+# 
+# 
+# nodelabels("",1,frame="c",bg="black",adj=0,cex=0.5)
+# nodelabels("",2,frame="c",bg="black",adj=0,cex=0.5)
+# nodelabels("",3,frame="c",bg="black",adj=0,cex=0.5)
+# nodelabels("",4,frame="c",bg="black",adj=0,cex=0.5)
+# nodelabels("",5,frame="c",bg="black",adj=0,cex=0.5)
+# nodelabels("",6,frame="c",bg="black",adj=0,cex=0.5)
+# 
+# 
+# axisPhylo(1,las=1,backward=FALSE)
 #edgelabels(round(tree$edge.length,2),bg="black",adj=c(0.5,0.5),col="white",font=2)
 
 
