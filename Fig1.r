@@ -46,7 +46,13 @@ edgelabels(round(tree$edge.length,2),bg="black",adj=c(0.5,0.5),col="white",font=
 xtable(round(vcv(tree),2))
 
 
+
+
+par(mfrow = c(1,2),
+    oma = c(5,4,0,0) + 0.1,
+    mar = c(0,0,1,1) + 0.1)
 # tiny tree
+library(phangorn)
 C<-vcv(tree)
 C <- tinytipvcv(C=vcv(tree),shrink=10^(-3))
 tree1<-upgma(2*(max(C)-C))
@@ -64,3 +70,24 @@ nodelabels("",6,frame="c",bg="black",adj=0,cex=0.5)
 
 
 axisPhylo(1,las=1,backward=FALSE)
+
+
+tree2<-sim.bd.taxa.age(n=size,numbsim=1,lambda=0.6,mu=0.1,age=9*10^2,mrca=TRUE)[[1]] 
+C <- vcv(tree2)
+C<- C/max(C)
+tree2<-upgma(2*(max(C)-C))
+tip.label<-c("  A","  B","  C","  D","  E","  F")
+tree2$tip.label<-tip.label
+plot(tree2,edge.width=5)
+nodelabels("",1,frame="c",bg="black",adj=0,cex=0.5)
+nodelabels("",2,frame="c",bg="black",adj=0,cex=0.5)
+nodelabels("",3,frame="c",bg="black",adj=0,cex=0.5)
+nodelabels("",4,frame="c",bg="black",adj=0,cex=0.5)
+nodelabels("",5,frame="c",bg="black",adj=0,cex=0.5)
+nodelabels("",6,frame="c",bg="black",adj=0,cex=0.5)
+
+
+axisPhylo(1,las=1,backward=FALSE)
+
+print(c(kappa(vcv(tree1)),kappa(vcv(tree2))))
+
