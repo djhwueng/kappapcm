@@ -15,6 +15,9 @@ tinytipvcv<-function(C=C,shrink=shrink){
 }
 
 set.seed(58)
+par(mfrow = c(1,3),
+    oma = c(5,4,0,0) + 0.1,
+    mar = c(0,0,1,1) + 0.1)
 size<-6
 tree <-  sim.bd.taxa.age(n=size, numbsim=1, lambda=0.6, mu=0.1, frac = 1, age=1, mrca = TRUE)[[1]]#lambda:speciation rate, mu:extinction rate, frac: each tip is included into the final tree with prob frac
 #tree<-sim.bd.taxa(n=size,numbsim=1,lambda=0.7,mu=0.5,complete = FALSE, stochsampling = TRUE)[[1]] 
@@ -48,9 +51,7 @@ xtable(round(vcv(tree),2))
 
 
 
-par(mfrow = c(1,2),
-    oma = c(5,4,0,0) + 0.1,
-    mar = c(0,0,1,1) + 0.1)
+
 # tiny tree
 library(phangorn)
 C<-vcv(tree)
